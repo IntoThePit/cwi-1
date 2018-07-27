@@ -1,5 +1,6 @@
 import argparse
 from src.data.dataset import Dataset
+from src.data.crosslingual_dataset import get_crosslingual_split
 from src.models.crosslingual import CrosslingualCWI
 from src.models.evaluation import report_binary_score
 
@@ -21,39 +22,43 @@ def run_model(test_language, evaluation_split, detailed_report):
     """
 
     # collect the training data for all the languages but one
-    train_data = []
-    for language, datasets_names in datasets_per_language.items():
-        if language != test_language:
-            for dataset_name in datasets_names:
-                data = Dataset(language, dataset_name)
-                lang_train_set = data.train_set()
-                if lang_train_set is None:
-                    print("No training data found for language {}.".format(language))
-                else:
-                    train_data.append((language, lang_train_set))
+#    train_data = []
+#    for language, datasets_names in datasets_per_language.items():
+#        if language != test_language:
+#            for dataset_name in datasets_names:
+#                data = Dataset(language, dataset_name)
+#                lang_train_set = data.train_set()
+#                if lang_train_set is None:
+#                    print("No training data found for language {}.".format(language))
+#                else:
+#                    train_data.append((language, lang_train_set))
 
+    # Worth noting that the devset is sometimes empty (French has no devset, only
+    # a testset)
+    trainset, _, _ = get_crosslingual_split(test_language)
+    
     # train the CWI model
-    cwi_model = CrosslingualCWI(list(datasets_per_language.keys()))
-    cwi_model.train(train_data)
-
-    # test the model
+    cwi_model = CrosslingualCWI()
+    cwi_model.train(trainset)
+    
     test_datasets = datasets_per_language[test_language]
 
     for dataset_name in test_datasets:
-        data = Dataset(test_language, dataset_name)
+        
+        _, devset, testset = get_crosslingual_split(test_language, dataset_name)
 
         print("\nTesting on  {} - {}.".format(test_language, dataset_name))
 
         if evaluation_split in ["dev", "both"]:
             print("\nResults on Development Data")
-            predictions_dev = cwi_model.predict(test_language, data.dev_set())
-            gold_labels_dev = data.dev_set()['gold_label']
+            predictions_dev = cwi_model.predict(test_language, devset)
+            gold_labels_dev = devset['gold_label']
             print(report_binary_score(gold_labels_dev, predictions_dev, detailed_report))
 
         if evaluation_split in ["test", "both"]:
             print("\nResults on Test Data")
-            predictions_test = cwi_model.predict(test_language, data.test_set())
-            gold_labels_test = data.test_set()['gold_label']
+            predictions_test = cwi_model.predict(test_language, testset)
+            gold_labels_test = testset['gold_label']
             print(report_binary_score(gold_labels_test, predictions_test, detailed_report))
 
     print()

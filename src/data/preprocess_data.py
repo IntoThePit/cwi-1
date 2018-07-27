@@ -47,12 +47,12 @@ def joinDatasets(h5_dataset_list):
         
     return train_dataset, test_dataset, dev_dataset
 
-def getCrosslingualSplit(full_dataset, test_language):
-    test_lang_set = full_dataset.loc[full_dataset['language'] == test_language]
-    train_lang_set = full_dataset.loc[full_dataset['language'] != test_language]
+def getCrosslingualSplit(full_dataset, test_language, source):
+    test_lang_set = full_dataset.loc[(full_dataset['language'] == test_language) & (full_dataset['source'] == source)]
+    train_lang_set = full_dataset.loc[(full_dataset['language'] != test_language) | (full_dataset['source'] != source)]
     return train_lang_set, test_lang_set
 
-def getAllCrosslingualSplits(train_dataset, test_dataset, dev_dataset, language_list):
+def getAllCrosslingualSplits(train_dataset, test_dataset, dev_dataset, languages):
     
     # This function returns a 2-level dictionary in the form:
     # split[language_use_as_test][train/dev/test] = dataset
@@ -61,57 +61,79 @@ def getAllCrosslingualSplits(train_dataset, test_dataset, dev_dataset, language_
     subsplits = ['train', 'dev', 'test']
     
     # The language here is the language to ignore.
-    for language in language_list:
-        
-        split[language] = {}
-        
-        for subsplit in subsplits:
+    for language, sources in languages.items():
+        for source in sources:
+            language_source = language + "_" + source
+            split[language_source] = {}
             
-            # This assumes that we are allowed to train on the training data of 
-            # our test language (as well as the training data of our training languages)
-            if subsplit == 'train':
-                train_lang_set, test_lang_set = getCrosslingualSplit(train_dataset, language)
-                final_set = train_lang_set.append(test_lang_set)
-            elif subsplit == 'dev':
-                _, test_lang_set = getCrosslingualSplit(dev_dataset, language)
-                final_set = test_lang_set
-            elif subsplit == 'test':
-                _, test_lang_set = getCrosslingualSplit(test_dataset, language)
-                final_set = test_lang_set
-            else:
-                print("Something went wrong! Subsplits should be train, dev and test only.")
-            
-            split[language][subsplit] = final_set
+            for subsplit in subsplits:
+                
+                # This assumes that we are allowed to train on the training data of 
+                # our test language (as well as the training data of our training languages)
+                if subsplit == 'train':
+                    train_lang_set, test_lang_set = getCrosslingualSplit(train_dataset, language, source)
+                    final_set = train_lang_set.append(test_lang_set)
+                elif subsplit == 'dev':
+                    _, test_lang_set = getCrosslingualSplit(dev_dataset, language, source)
+                    final_set = test_lang_set
+                elif subsplit == 'test':
+                    _, test_lang_set = getCrosslingualSplit(test_dataset, language, source)
+                    final_set = test_lang_set
+                else:
+                    print("Something went wrong! Subsplits should be train, dev and test only.")
+                
+                
+                split[language_source][subsplit] = final_set
     return split
 
-path_to_raw_data = 'data/raw'
-destination_path_for_processed_files = 'data/processed/'
-
-p = Path(path_to_raw_data)
-dir_list = [x for x in p.iterdir() if x.is_dir()]
-dir_names = [x.parts[-1] for x in dir_list]
-
-for i in range(len(dir_list)):
-    lang_dir = dir_list[i]
-    lang_name = dir_names[i]
-    p2 = Path(lang_dir)
-    sub_filepaths = list(p2.iterdir())
-    for sub_file_path in sub_filepaths:
-        dataset = read_dataset(sub_file_path)
-        dataset['language'] = lang_name
-        sub_file_name = str(sub_file_path.parts[-1])[:-4]
-        new_file_path = destination_path_for_processed_files + sub_file_name+ '.h5'
-        p3 = Path(new_file_path)
-        if not p3.exists():
-            dataset.to_hdf(new_file_path, 'table', mode='w', append=True, complevel=3, complib='zlib')
-
-
-split_filepath = Path(destination_path_for_processed_files + 'all_splits.pkl')
-if not split_filepath.exists():
-    all_datasets = getAllH5DatasetPaths(destination_path_for_processed_files)
-    train_dataset, test_dataset, dev_dataset = joinDatasets(all_datasets)
-    language_list = dir_names
-    split = getAllCrosslingualSplits(train_dataset, test_dataset, dev_dataset, language_list)
+def preprocess_data():
+    path_to_raw_data = 'data/raw'
+    destination_path_for_processed_files = 'data/processed/'
     
-    with open(split_filepath,'wb') as file:
-        pickle.dump(split, file, protocol=pickle.HIGHEST_PROTOCOL)
+    p = Path(path_to_raw_data)
+    dir_list = [x for x in p.iterdir() if x.is_dir()]
+    dir_names = [x.parts[-1] for x in dir_list]
+
+    
+    for i in range(len(dir_list)):
+        lang_dir = dir_list[i]
+        lang_name = dir_names[i]
+        p2 = Path(lang_dir)
+        sub_filepaths = list(p2.iterdir())
+        for sub_file_path in sub_filepaths:
+            dataset = read_dataset(sub_file_path)
+            dataset['language'] = lang_name
+            sub_file_name = str(sub_file_path.parts[-1])[:-4]
+            
+            # This is like "News" or "Wikinews" or "French":
+            data_file_source = sub_file_name.split('_')[0]
+            dataset['source'] = data_file_source
+            
+            new_file_path = destination_path_for_processed_files + sub_file_name+ '.h5'
+            p3 = Path(new_file_path)
+            if not p3.exists():
+                dataset.to_hdf(new_file_path, 'table', mode='w', append=True, complevel=3, complib='zlib')
+    
+    
+    split_filepath = Path(destination_path_for_processed_files + 'all_splits.pkl')
+    if not split_filepath.exists():
+        all_datasets = getAllH5DatasetPaths(destination_path_for_processed_files)
+        train_dataset, test_dataset, dev_dataset = joinDatasets(all_datasets)
+        
+        # setting up a dictionary that maps languages to their different datasources
+        languages = {
+                "english": ["News", "WikiNews", "Wikipedia"],
+                "spanish": ["Spanish"],
+                "german": ["German"],
+                "french": ["French"]
+                }
+
+        split = getAllCrosslingualSplits(train_dataset, test_dataset, dev_dataset, languages)
+        
+        with open(split_filepath,'wb') as file:
+            pickle.dump(split, file, protocol=pickle.HIGHEST_PROTOCOL)
+            
+    return 0
+            
+if __name__ == '__main__':
+    preprocess_data()
