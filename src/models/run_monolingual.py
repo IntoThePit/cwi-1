@@ -32,7 +32,7 @@ def run_model(language, dataset_name, evaluation_split, detailed_report):
     """
     print("\nModel for {} - {}.".format(language, dataset_name))
 
-    data = Dataset(language, dataset_name)
+    trainset, devset, testset = get_monolingual_data(language, dataset_name)
 
     #The code below is used for creating unigram probability csv files
 
@@ -60,18 +60,18 @@ def run_model(language, dataset_name, evaluation_split, detailed_report):
 
     baseline = MonolingualCWI(language)
 
-    baseline.train(data.train_set())
+    baseline.train(trainset)
 
     if evaluation_split in ["dev", "both"]:
         print("\nResults on Development Data")
-        predictions_dev = baseline.predict(data.dev_set())
-        gold_labels_dev = data.dev_set()['gold_label']
+        predictions_dev = baseline.predict(devset)
+        gold_labels_dev = devset['gold_label']
         print(report_binary_score(gold_labels_dev, predictions_dev, detailed_report))
 
     if evaluation_split in ["test", "both"]:
         print("\nResults on Test Data")
-        predictions_test = baseline.predict(data.test_set())
-        gold_labels_test = data.test_set()['gold_label']
+        predictions_test = baseline.predict(testset)
+        gold_labels_test = testset['gold_label']
         print(report_binary_score(gold_labels_test, predictions_test, detailed_report))
 
     print()

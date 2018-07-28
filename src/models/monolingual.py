@@ -38,21 +38,21 @@ class MonolingualCWI(object):
         """
         pipe_dict = {}
         pipe_dict['word_features'] = Pipeline([
-            ('select', Selector(key="target_word")),
+            ('select', Selector(key=["language","target_word"])),
             ('extract', Word_Feature_Extractor(language)),
             ('vectorize', DictVectorizer())])
 
         pipe_dict['sent_features'] = Pipeline([
-            ('select', Selector(key="sentence")),
+            ('select', Selector(key=["language","sentence"])),
             ('extract', Sentence_Feature_Extractor(language)),
             ('vectorize', DictVectorizer())])
 
         pipe_dict['bag_of_words'] = Pipeline([
-            ('select', Selector(key="target_word")),
+            ('select', Selector(key=["language","target_word"])),
             ('vectorize', CountVectorizer())])
 
         pipe_dict['spacy_features'] = Pipeline([
-            ('select', Selector(key=["target_word", "spacy", "sentence"])),
+            ('select', Selector(key=["language","target_word", "spacy", "sentence"])),
             ('extract', Spacy_Feature_Extractor(language)),
             ('vectorize', DictVectorizer())])
 

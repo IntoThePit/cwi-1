@@ -110,7 +110,7 @@ class Word_Feature_Extractor(BaseEstimator, TransformerMixin):
         This tranformer should always be followed by a DictionaryVectorizer in any pipeline which uses it.
         """
 
-        """Gathering normalisation information from the whole dataset"""
+        
         unique_languages = X.language.unique()
         
         result=[]
@@ -129,6 +129,8 @@ class Word_Feature_Extractor(BaseEstimator, TransformerMixin):
         target_words = X['target_word']
         languages = X['language']
         
+        # This gets set in the case of our monolingual system.
+        """Gathering normalisation information from the whole dataset"""
         one_language = None
         if not self.crosslingual:
             one_language = unique_languages[0]
