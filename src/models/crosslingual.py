@@ -18,33 +18,27 @@ class CrosslingualCWI(object):
 
     """
 
-    def __init__(self, languages):
+    def __init__(self):
         """Defines the basic properties of the model.
 
-        Args:
-            languages (list of str): languages of the data that will be used for training and testing.
 
         """
         self.model = LogisticRegression()
         self.crosslingual = True
 
-        self.features_pipelines = {}
-        for language in languages:
-            self.features_pipelines[language] = self.join_pipelines(language)
+        self.features_pipeline = self.join_pipelines()
 
-    def build_pipelines(self, language):
+    def build_pipelines(self):
         """
         Builds all feature pipelines
         Returns pipelines in format suitable for sklearn FeatureUnion
-        Args:
-            language: The language of the data.
         Returns:
             list. list of ('pipeline_name', Pipeline) tuples
         """
         pipe_dict = {}
         pipe_dict['word_features'] = Pipeline([
-            ('select', Selector(key="target_word")),
-            ('extract', Word_Feature_Extractor(language, crosslingual=self.crosslingual)),
+            ('select', Selector(key=["language","target_word"])),
+            ('extract', Word_Feature_Extractor(crosslingual=self.crosslingual)),
             ('vectorize', DictVectorizer())])
 
         # pipe_dict['sent_features'] = Pipeline([
@@ -72,9 +66,9 @@ class CrosslingualCWI(object):
 
         return list(pipe_dict.items())
 
-    def join_pipelines(self, language):
+    def join_pipelines(self):
 
-        pipelines = self.build_pipelines(language)
+        pipelines = self.build_pipelines()
         feature_union = Pipeline([('join pipelines', FeatureUnion(transformer_list=pipelines))])
 
         return feature_union
@@ -87,22 +81,13 @@ class CrosslingualCWI(object):
                             instance in the dataset.
 
         """
-        X = []
-        y = []
-        for language, train_data in train_set:
-            X_temp = self.features_pipelines[language].fit_transform(train_data)
 
-            print("{}: {}".format(language, X_temp.shape))
+        X = self.features_pipeline.fit_transform(train_set)
+        y = train_set['gold_label']
+        self.model.fit(X, y)
 
-            X.append(X_temp)
-            y.extend(train_data['gold_label'].tolist())
 
-        X_all = vstack(X)
-        y_all = np.array(y)
-
-        self.model.fit(X_all, y_all)
-
-    def predict(self, language, test_set):
+    def predict(self, test_set):
         """Predicts the label for the given instances.
 
         Args:
@@ -113,6 +98,8 @@ class CrosslingualCWI(object):
 
         """
 
-        X = self.features_pipelines[language].fit_transform(test_set)
+        # TODO: Should this be fit_transform or just transform, in line with
+        # the monolingual system?
+        X = self.features_pipeline.fit_transform(test_set)
 
         return self.model.predict(X)

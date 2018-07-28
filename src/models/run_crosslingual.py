@@ -57,7 +57,7 @@ def run_model(test_language, evaluation_split, detailed_report):
 
         if evaluation_split in ["test", "both"]:
             print("\nResults on Test Data")
-            predictions_test = cwi_model.predict(test_language, testset)
+            predictions_test = cwi_model.predict(testset)
             gold_labels_test = testset['gold_label']
             print(report_binary_score(gold_labels_test, predictions_test, detailed_report))
 

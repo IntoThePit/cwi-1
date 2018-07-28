@@ -81,7 +81,7 @@ class Word_Feature_Extractor(BaseEstimator, TransformerMixin):
 
     """
 
-    def __init__(self, language, crosslingual=False, maxCharNgrams=6, normaliseSynsenFeats=True):
+    def __init__(self, crosslingual=False, maxCharNgrams=6, normaliseSynsenFeats=True):
         """
         Define basic properties
 
@@ -90,18 +90,9 @@ class Word_Feature_Extractor(BaseEstimator, TransformerMixin):
             maxCharNgrams(int): Extract 1 to N length Character NGrams and
                                 suffixes and prefixes (e.g. 2 = 'ch')
         """
-        self.language = language
         self.crosslingual = crosslingual
         self.maxCharNgrams = maxCharNgrams
         self.normaliseSynsenFeats = normaliseSynsenFeats
-
-        if (self.language == 'english'):
-            #print('reading unigram probs')
-            self.u_prob = file_io.read_file('data/external/english_u_prob.csv') #should be in data/external
-
-        if (self.language == 'spanish'):
-            print('reading unigram probs')
-            self.u_prob = file_io.read_file('data/external/spanish_u_prob.csv')
 
     def fit(self, X, *_):
         return self
@@ -120,18 +111,37 @@ class Word_Feature_Extractor(BaseEstimator, TransformerMixin):
         """
 
         """Gathering normalisation information from the whole dataset"""
-        result=[]
-        if not self.crosslingual:
-            if (self.language == 'english' or self.language == 'spanish'):
-                if self.normaliseSynsenFeats == True:
-                    self.avg_sense_count = np.mean([synsenfeats.no_synonyms(target_word, self.language) for target_word in X])
-                    self.avg_syn_count = np.mean([synsenfeats.no_senses(target_word, self.language) for target_word in X])
-
+        unique_languages = X.language.unique()
         
+        result=[]
+        
+        # Just an idea about how this could be refactored to work:
+        u_prob = {}
+        for language in unique_languages:
+            if (language == 'english'):
+                #print('reading unigram probs')
+                u_prob[language] = file_io.read_file('data/external/english_u_prob.csv') #should be in data/external
 
-        for target_word in X:
+            if (language == 'spanish'):
+#                print('reading unigram probs')
+                u_prob[language] = file_io.read_file('data/external/spanish_u_prob.csv')
             
-            len_chars_norm = lenfeats.character_length(target_word, language=self.language)
+        target_words = X['target_word']
+        languages = X['language']
+        
+        one_language = None
+        if not self.crosslingual:
+            one_language = unique_languages[0]
+            if (one_language == 'english' or one_language == 'spanish'):
+                if self.normaliseSynsenFeats == True:
+                    self.avg_sense_count = np.mean([synsenfeats.no_synonyms(target_word, language) for target_word in target_words])
+                    self.avg_syn_count = np.mean([synsenfeats.no_senses(target_word, language) for target_word in target_words])
+        
+        for index, row in X.iterrows():
+            language = row['language']
+            target_word = row['target_word']
+            
+            len_chars_norm = lenfeats.character_length(target_word, language=language)
             len_tokens = lenfeats.token_length(target_word)
             consonant_freq = phonfeats.consonant_frequency(target_word)
             gr_or_lat = affeats.greek_or_latin(target_word)
@@ -139,14 +149,14 @@ class Word_Feature_Extractor(BaseEstimator, TransformerMixin):
             num_complex_punct = morphfeats.num_complex_punct(target_word)
             
             if not self.crosslingual:
-                len_syllables = phonfeats.num_syllables(target_word, language=self.language)
-                char_tri_sum, char_tri_avg = trifeats.trigram_stats(target_word, self.language)
-                is_stopword = stop.is_stop(target_word,self.language)
-                averaged_chars_per_word = lenfeats.averaged_chars_per_word(target_word, self.language)
-                num_pronunciations = phonfeats.num_pronunciations(target_word, language=self.language)
+                len_syllables = phonfeats.num_syllables(target_word, language=language)
+                char_tri_sum, char_tri_avg = trifeats.trigram_stats(target_word, language)
+                is_stopword = stop.is_stop(target_word, language)
+                averaged_chars_per_word = lenfeats.averaged_chars_per_word(target_word, language)
+                num_pronunciations = phonfeats.num_pronunciations(target_word, language=language)
                 char_ngrams = charfeats.getAllCharNGrams(target_word, self.maxCharNgrams)
-                rare_word_count = freqfeats.rare_word_count(target_word, self.language)
-                rare_trigram_count = trifeats.rare_trigram_count(target_word, self.language)
+                rare_word_count = freqfeats.rare_word_count(target_word, language)
+                rare_trigram_count = trifeats.rare_trigram_count(target_word, language)
                 # dictionary to store the features in, vectorize this with DictionaryVectorizer 'len_chars_norm': len_chars_norm,
                 row_dict = {
                         'len_chars_norm': len_chars_norm,
@@ -173,29 +183,15 @@ class Word_Feature_Extractor(BaseEstimator, TransformerMixin):
                     'is_capitalised': is_capitalised,
                     'num_complex_punct': num_complex_punct,
                         }
-            
-#            # Ideally I'd like to make two loops, one for all the non-crosslingual features
-#            # and one for all the crosslingual features, so that this check can be
-#            # taken outside the loop:
-#            if not self.crosslingual:
-#                if (self.language == 'english' or self.language == 'spanish'):
-#                    syn_count = synsenfeats.no_synonyms(target_word, self.language)
-#                    sense_count = synsenfeats.no_senses(target_word, self.language)
-#    
-#                    if self.normaliseSynsenFeats: # Normalisation
-#                        row_dict.update({'syn_count': syn_count/self.avg_syn_count, 'sense_count': sense_count/self.avg_sense_count})
-#                    else:
-#                        row_dict.update({'syn_count': syn_count, 'sense_count': sense_count})
 
-            #unigram prob
             
             if not self.crosslingual:
-                if(self.language == 'english' or self.language == 'spanish'):
+                if(one_language == 'english' or one_language == 'spanish'):
                     unigram_prob = prob_feats.get_unigram_prob(target_word, self.language, self.u_prob)
                     #print(unigram_prob)
                     row_dict['unigram_prob'] = unigram_prob
     
-                if (self.language == 'english' or self.language == 'spanish'):
+                if (one_language == 'english' or one_language == 'spanish'):
                     syn_count = synsenfeats.no_synonyms(target_word, self.language)
                     sense_count = synsenfeats.no_senses(target_word, self.language)
     
@@ -203,10 +199,11 @@ class Word_Feature_Extractor(BaseEstimator, TransformerMixin):
                         row_dict.update({'syn_count': syn_count/self.avg_syn_count, 'sense_count': sense_count/self.avg_sense_count})
                     else:
                         row_dict.update({'syn_count': syn_count, 'sense_count': sense_count})
-    
+                     
                 # Need to add these in a loop, since I don't know how many there will be:
                 for ngram, count in char_ngrams.items():
                     row_dict['char_ngrams__' + ngram] = count
+                
 
             result.append(row_dict)
 
