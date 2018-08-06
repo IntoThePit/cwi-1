@@ -72,6 +72,7 @@ def getAllCrosslingualSplits(train_dataset, test_dataset, dev_dataset, languages
                 # our test language (as well as the training data of our training languages)
                 if subsplit == 'train':
                     train_lang_set, test_lang_set = getCrosslingualSplit(train_dataset, language, source)
+                    # TODO: Change this so that we don't train on the language we're testing on
                     final_set = train_lang_set.append(test_lang_set)
                 elif subsplit == 'dev':
                     _, test_lang_set = getCrosslingualSplit(dev_dataset, language, source)

@@ -37,7 +37,6 @@ from src.features import morphological_features as morphfeats
 from src.features import frequency_index_features as freqixfeats
 from src.features import stopwords as stop
 from src.features import lemma_features as lemmafeats
-from src.features import morphological_features as morphfeats
 from src.features import frequency_features as freqfeats
 from src.features import hypernym_features as hyper_feats
 from src.features import noun_phrase_features as noun_feats
@@ -127,7 +126,7 @@ class Word_Feature_Extractor(BaseEstimator, TransformerMixin):
                 u_prob[language] = file_io.read_file('data/external/spanish_u_prob.csv')
             
         target_words = X['target_word']
-        languages = X['language']
+#        languages = X['language']
         
         # This gets set in the case of our monolingual system.
         """Gathering normalisation information from the whole dataset"""
