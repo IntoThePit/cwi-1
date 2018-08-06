@@ -89,7 +89,7 @@ def getAllCrosslingualSplits(train_dataset, test_dataset, dev_dataset, languages
 
 def preprocess_data():
     path_to_raw_data = 'data/raw'
-    destination_path_for_processed_files = 'data/processed/'
+    destination_path_for_processed_files = 'data/interim/'
     
     p = Path(path_to_raw_data)
     dir_list = [x for x in p.iterdir() if x.is_dir()]

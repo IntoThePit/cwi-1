@@ -10,7 +10,7 @@ import pickle
 from src.data.preprocess_data import preprocess_data
 
 def get_crosslingual_split(test_language, source=None):
-    path_to_split = 'data/processed/all_splits.pkl'
+    path_to_split = 'data/interim/all_splits.pkl'
     p = Path(path_to_split)
     if p.exists():
         with open(p,'rb') as file:
